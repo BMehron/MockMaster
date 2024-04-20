@@ -2,6 +2,8 @@ import streamlit as st
 from audiorecorder import audiorecorder
 from streamlit_extras.stylable_container import stylable_container
 from model import get_answer
+from keys import opai_key
+from openai import OpenAI
 
 # App title
 st.set_page_config(page_title="🤗💬 HugChat")
@@ -45,19 +47,25 @@ with stylable_container(
             """,
     ):
         audio = audiorecorder("🎙️ start", "🎙️ stop")
-if len(audio) > 0:
-    st.audio(audio.export().read())  
-    audio.export("audio.mp3", format="mp3")
-    # extract text from audio.
-    prompt = " ".join(audio.recognize("en-US").split()[1:])
+        
+if prompt := st.chat_input(disabled=False):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
-    st.write(f"Frame rate: {audio.frame_rate}, Frame width: {prompt}, Duration: {audio.duration_seconds} seconds")
-elif prompt := st.chat_input(disabled=False):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.write(prompt)
+elif len(audio) > 0:
+    # To play audio in frontend:
+    #st.audio(audio.export().read())  
+    audio.export("audio.mp3", format="mp3")
+    # extract text from audio.
+    client = OpenAI(api_key=opai_key)
+    audio_file = open("audio.mp3", "rb")
+    prompt = client.audio.transcriptions.create(
+      model="whisper-1", 
+      file=audio_file
+    ).text
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.write(prompt)
 
         # Generate a new response if last message is not from assistant
 if st.session_state.messages[-1]["role"] != "assistant":
